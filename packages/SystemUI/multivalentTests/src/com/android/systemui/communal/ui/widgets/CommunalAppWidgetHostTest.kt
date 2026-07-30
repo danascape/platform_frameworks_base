@@ -16,6 +16,7 @@
 
 package com.android.systemui.communal.ui.widgets
 
+import android.appwidget.AppWidgetHost.AppWidgetHostListener
 import android.testing.TestableLooper
 import android.testing.TestableLooper.RunWithLooper
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -101,6 +102,9 @@ class CommunalAppWidgetHostTest : SysuiTestCase() {
 
             // Observer removed
             underTest.removeObserver(observer)
+            // Listening is edge triggered, so go back to not listening for the next start to be a
+            // real transition.
+            underTest.stopListening()
             runCurrent()
 
             // Verify callback not triggered
@@ -115,6 +119,8 @@ class CommunalAppWidgetHostTest : SysuiTestCase() {
             // Observer added
             val observer = mock<CommunalAppWidgetHost.Observer>()
             underTest.addObserver(observer)
+            // The host has to be listening for a stop to be a transition.
+            underTest.startListening()
             runCurrent()
 
             // Verify callback triggered
@@ -127,6 +133,7 @@ class CommunalAppWidgetHostTest : SysuiTestCase() {
 
             // Observer removed
             underTest.removeObserver(observer)
+            underTest.startListening()
             runCurrent()
 
             // Verify callback not triggered
@@ -134,6 +141,126 @@ class CommunalAppWidgetHostTest : SysuiTestCase() {
             runCurrent()
             verify(observer, never()).onHostStopListening()
         }
+
+    @Test
+    fun listening_repeatedStartsOnlyTransitionOnce() =
+        testScope.runTest {
+            val observer = mock<CommunalAppWidgetHost.Observer>()
+            underTest.addObserver(observer)
+            runCurrent()
+
+            underTest.startListening()
+            underTest.startListening()
+            underTest.startListening()
+            runCurrent()
+
+            verify(observer).onHostStartListening()
+        }
+
+    @Test
+    fun listening_leaseKeepsHostListeningAcrossStopListening() =
+        testScope.runTest {
+            val observer = mock<CommunalAppWidgetHost.Observer>()
+            underTest.addObserver(observer)
+            runCurrent()
+
+            // A lease starts the host on its own.
+            underTest.acquireListeningLease("test")
+            runCurrent()
+            verify(observer).onHostStartListening()
+
+            clearInvocations(observer)
+
+            // The hub stopping must not tear the host down while the lease is held, otherwise the
+            // out-of-process host would stop receiving widget updates.
+            underTest.startListening()
+            underTest.stopListening()
+            runCurrent()
+            verify(observer, never()).onHostStopListening()
+
+            // Releasing the last holder does stop it.
+            underTest.releaseListeningLease("test")
+            runCurrent()
+            verify(observer).onHostStopListening()
+        }
+
+    @Test
+    fun listening_leaseDoesNotStopHostWhileHubIsListening() =
+        testScope.runTest {
+            val observer = mock<CommunalAppWidgetHost.Observer>()
+            underTest.addObserver(observer)
+            runCurrent()
+
+            underTest.startListening()
+            underTest.acquireListeningLease("test")
+            runCurrent()
+            verify(observer).onHostStartListening()
+
+            clearInvocations(observer)
+
+            underTest.releaseListeningLease("test")
+            runCurrent()
+            verify(observer, never()).onHostStopListening()
+        }
+
+    // Attaching a listener makes the framework push the widget's current views to every listener
+    // attached to that id, which is what these tests observe. APP_WIDGET_ID is not bound to this
+    // host, so the views pushed are null.
+
+    @Test
+    fun listeners_auxListenerDoesNotDisplacePrimary() =
+        testScope.runTest {
+            val primary = mock<AppWidgetHostListener>()
+            val aux = mock<AppWidgetHostListener>()
+
+            underTest.setListener(APP_WIDGET_ID, primary)
+            clearInvocations(primary)
+
+            underTest.addAuxListener(APP_WIDGET_ID, aux)
+
+            // The primary is still attached and gets the update alongside the new listener.
+            verify(primary).updateAppWidget(null)
+            verify(aux).updateAppWidget(null)
+        }
+
+    @Test
+    fun listeners_removingPrimaryKeepsAuxAttached() =
+        testScope.runTest {
+            val primary = mock<AppWidgetHostListener>()
+            val aux = mock<AppWidgetHostListener>()
+
+            underTest.setListener(APP_WIDGET_ID, primary)
+            underTest.addAuxListener(APP_WIDGET_ID, aux)
+            underTest.removeListener(APP_WIDGET_ID)
+            clearInvocations(primary, aux)
+
+            underTest.addAuxListener(APP_WIDGET_ID, aux)
+
+            verify(primary, never()).updateAppWidget(null)
+            verify(aux).updateAppWidget(null)
+        }
+
+    @Test
+    fun listeners_removingAuxKeepsPrimaryAttached() =
+        testScope.runTest {
+            val primary = mock<AppWidgetHostListener>()
+            val aux = mock<AppWidgetHostListener>()
+
+            underTest.setListener(APP_WIDGET_ID, primary)
+            underTest.addAuxListener(APP_WIDGET_ID, aux)
+            underTest.removeAuxListener(APP_WIDGET_ID, aux)
+            clearInvocations(primary, aux)
+
+            underTest.setListener(APP_WIDGET_ID, primary)
+
+            verify(primary).updateAppWidget(null)
+            verify(aux, never()).updateAppWidget(null)
+        }
+
+    private companion object {
+        // Deliberately not bound to this host.
+        const val APP_WIDGET_ID = 1
+    }
 
     @Test
     fun observer_onAllocateAppWidgetIdTriggeredWhileObserverActive() =

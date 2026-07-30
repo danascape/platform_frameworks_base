@@ -36,6 +36,7 @@ import com.android.systemui.log.dagger.CommunalLog
 import com.android.systemui.user.domain.interactor.SelectedUserInteractor
 import com.android.systemui.util.kotlin.getOrNull
 import java.util.Optional
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -138,12 +139,23 @@ constructor(
         return appWidgetManager.getOrNull()?.getAppWidgetInfo(widgetId)
     }
 
+    /**
+     * Number of callers that have asked to observe the host. Ref counted because the hub and any
+     * out-of-process host bound through [GlanceableHubOverlayService] observe independently, and
+     * one stopping must not detach the other.
+     */
+    private val observerRefCount = AtomicInteger(0)
+
     fun startObservingHost() {
-        appWidgetHost.addObserver(this@CommunalWidgetHost)
+        if (observerRefCount.getAndIncrement() == 0) {
+            appWidgetHost.addObserver(this@CommunalWidgetHost)
+        }
     }
 
     fun stopObservingHost() {
-        appWidgetHost.removeObserver(this@CommunalWidgetHost)
+        if (observerRefCount.updateAndGet { if (it > 0) it - 1 else 0 } == 0) {
+            appWidgetHost.removeObserver(this@CommunalWidgetHost)
+        }
     }
 
     fun refreshProviders() {

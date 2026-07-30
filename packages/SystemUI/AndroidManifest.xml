@@ -211,6 +211,11 @@
     <permission android:name="android.permission.CUSTOMIZE_SYSTEM_UI"
         android:protectionLevel="signature|privileged" />
 
+    <!-- Lets a privileged host outside SystemUI (Launcher's "-1" page) render the glanceable
+         hub's widgets through GlanceableHubOverlayService. -->
+    <permission android:name="com.android.systemui.permission.ACCESS_GLANCEABLE_HUB"
+        android:protectionLevel="signature|privileged" />
+
     <!-- Adding Quick Settings tiles -->
     <uses-permission android:name="android.permission.BIND_QUICK_SETTINGS_TILE" />
 
@@ -1060,6 +1065,16 @@
         <service
             android:name="com.android.systemui.communal.widgets.GlanceableHubWidgetManagerService"
             android:exported="false" />
+
+        <!-- Publishes the glanceable hub's widgets to a privileged host outside SystemUI. -->
+        <service
+            android:name="com.android.systemui.communal.widgets.GlanceableHubOverlayService"
+            android:permission="com.android.systemui.permission.ACCESS_GLANCEABLE_HUB"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.android.systemui.action.GLANCEABLE_HUB_OVERLAY" />
+            </intent-filter>
+        </service>
 
         <!-- Doze with notifications, run in main sysui process for every user  -->
         <service
