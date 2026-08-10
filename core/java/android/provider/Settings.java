@@ -21503,6 +21503,30 @@ public final class Settings {
             public static final String WEAR_SYSTEM_STATUS_TRAY_CONFIGURATION =
                     "wear_system_status_tray_configuration";
         }
+
+        /**
+         * The amount of time in milliseconds before a disconnected Wi-Fi adapter is turned off.
+         * A value of 0 disables this feature.
+         *
+         * @hide
+         */
+        public static final String WIFI_AUTO_OFF = "wifi_off_timeout";
+
+        /**
+         * The amount of time in milliseconds before a disconnected Bluetooth adapter is turned
+         * off. A value of 0 disables this feature.
+         *
+         * @hide
+         */
+        public static final String BLUETOOTH_AUTO_OFF = "bluetooth_off_timeout";
+
+        /**
+         * The amount of time in milliseconds the device is allowed to stay locked before it is
+         * rebooted. A value of 0 disables this feature.
+         *
+         * @hide
+         */
+        public static final String AUTO_REBOOT_TIMEOUT = "settings_reboot_after_timeout";
     }
 
     /**

@@ -47,10 +47,12 @@ public class KeyguardStateMonitor extends IKeyguardStateCallback.Stub {
 
     private int mCurrentUserId;
 
+    private final Context mContext;
     private final LockPatternUtils mLockPatternUtils;
     private final StateCallback mCallback;
 
     public KeyguardStateMonitor(Context context, IKeyguardService service, StateCallback callback) {
+        mContext = context;
         mLockPatternUtils = new LockPatternUtils(context);
         mCurrentUserId = ActivityManager.getCurrentUser();
         mCallback = callback;
@@ -89,6 +91,8 @@ public class KeyguardStateMonitor extends IKeyguardStateCallback.Stub {
         mIsShowing = showing;
 
         mCallback.onShowingChanged();
+
+        AutoReboot.onKeyguardShowingStateChanged(mContext, showing, userId);
     }
 
     @Override // Binder interface
