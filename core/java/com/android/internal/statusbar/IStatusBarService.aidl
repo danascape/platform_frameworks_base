@@ -249,4 +249,12 @@ interface IStatusBarService
      * Starts the default assistant app.
      */
     void startAssist(in Bundle args);
+
+    /**
+     * Called by SystemUI when the duress ("auto-destruct") fingerprint countdown ran out without
+     * being cancelled. The reset itself deliberately happens on this side: MasterClearReceiver wipes
+     * only the sending user when the sender is not the system user, so a wipe broadcast from a
+     * SystemUI running in a secondary profile would erase that profile and leave the device intact.
+     */
+    void onDuressWipeConfirmed();
 }

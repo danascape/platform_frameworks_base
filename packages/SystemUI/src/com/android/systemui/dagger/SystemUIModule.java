@@ -70,6 +70,7 @@ import com.android.systemui.display.DisplayModule;
 import com.android.systemui.doze.dagger.DozeComponent;
 import com.android.systemui.doze.dagger.RootDozeModule;
 import com.android.systemui.dreams.dagger.DreamModule;
+import com.android.systemui.duress.DuressWipeModule;
 import com.android.systemui.flags.FeatureFlags;
 import com.android.systemui.flags.FlagDependenciesModule;
 import com.android.systemui.flags.FlagsModule;
@@ -250,6 +251,7 @@ import javax.inject.Named;
         DisableFlagsModule.class,
         DisplayModule.class,
         RootDozeModule.class,
+        DuressWipeModule.class,
         DreamModule.class,
         EventLogModule.class,
         FalsingModule.class,

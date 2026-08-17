@@ -102,6 +102,15 @@ public class FingerprintManager implements BiometricAuthenticator, BiometricFing
     private static final String TAG = "FingerprintManager";
 
     /**
+     * Sentinel enrolment id meaning "no enrolment". Used by
+     * {@link #getDuressFingerprint(int)} and {@link #setDuressFingerprint(int, int)}; never a
+     * valid template id, which the HAL always reports as positive.
+     *
+     * @hide
+     */
+    public static final int FINGERPRINT_ID_NONE = -1;
+
+    /**
      * @hide
      */
     public static final int ENROLL_FIND_SENSOR = 1;
@@ -921,6 +930,54 @@ public class FingerprintManager implements BiometricAuthenticator, BiometricFing
             }
         } else {
             Slog.w(TAG, "rename(): Service not connected!");
+        }
+    }
+
+    /**
+     * Marks an enrolment as the user's duress ("auto-destruct") fingerprint.
+     *
+     * <p>A duress fingerprint is enrolled as an ordinary template — the HAL has no notion of a
+     * wipe-only finger and matches it like any other — but the framework never treats a match as
+     * an unlock. Matching it at the keyguard is reported to the caller as a failed match and
+     * triggers a factory reset instead. At most one enrolment per user can be the duress finger.
+     *
+     * <p>The mark is dropped automatically when the enrolment is removed, so a template id later
+     * reused by the HAL for a fresh enrolment cannot inherit it.
+     *
+     * @param fpId the enrolment to mark, or {@link #FINGERPRINT_ID_NONE} to clear the mark
+     * @param userId the user this enrolment belongs to
+     *
+     * @hide
+     */
+    @RequiresPermission(MANAGE_FINGERPRINT)
+    public void setDuressFingerprint(int fpId, int userId) {
+        if (mService == null) {
+            Slog.w(TAG, "setDuressFingerprint(): Service not connected!");
+            return;
+        }
+        try {
+            mService.setDuressFingerprint(fpId, userId);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Returns the enrolment marked as the user's duress fingerprint by
+     * {@link #setDuressFingerprint(int, int)}, or {@link #FINGERPRINT_ID_NONE} if there is none.
+     *
+     * @hide
+     */
+    @RequiresPermission(MANAGE_FINGERPRINT)
+    public int getDuressFingerprint(int userId) {
+        if (mService == null) {
+            Slog.w(TAG, "getDuressFingerprint(): Service not connected!");
+            return FINGERPRINT_ID_NONE;
+        }
+        try {
+            return mService.getDuressFingerprint(userId);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
         }
     }
 

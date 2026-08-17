@@ -45,9 +45,13 @@ import android.hardware.fingerprint.FingerprintManager;
 import android.hardware.fingerprint.FingerprintSensorPropertiesInternal;
 import android.hardware.fingerprint.IUdfpsOverlayController;
 import android.os.IBinder;
+import android.os.RecoverySystem;
 import android.os.RemoteException;
 import android.util.Slog;
 
+import com.android.internal.os.BackgroundThread;
+import com.android.server.LocalServices;
+import com.android.server.biometrics.Utils;
 import com.android.server.biometrics.log.BiometricContext;
 import com.android.server.biometrics.log.BiometricLogger;
 import com.android.server.biometrics.log.CallbackWithProbe;
@@ -64,9 +68,12 @@ import com.android.server.biometrics.sensors.LockoutConsumer;
 import com.android.server.biometrics.sensors.LockoutTracker;
 import com.android.server.biometrics.sensors.PerformanceTracker;
 import com.android.server.biometrics.sensors.SensorOverlays;
+import com.android.server.biometrics.sensors.fingerprint.DuressFingerprintStore;
 import com.android.server.biometrics.sensors.fingerprint.PowerPressHandler;
 import com.android.server.biometrics.sensors.fingerprint.Udfps;
+import com.android.server.statusbar.StatusBarManagerInternal;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.function.Supplier;
 
@@ -176,6 +183,16 @@ public class FingerprintAuthenticationClient
             BiometricAuthenticator.Identifier identifier,
             boolean authenticated,
             ArrayList<Byte> token) {
+        if (authenticated && isDuressFingerprint(identifier)) {
+            // Downgrade the match to a failure *before* anything downstream runs. super() is what
+            // pushes the HAT into keystore, clears the lockout counter and tells the keyguard to
+            // dismiss, so the duress finger must never reach it as a success — it is a wipe
+            // trigger, not a credential. The keyguard shows its ordinary "not recognized" message,
+            // and the countdown overlay comes up over the top of it.
+            Slog.w(TAG, "Duress fingerprint matched; requesting device wipe");
+            authenticated = false;
+            requestDuressWipe();
+        }
         super.onAuthenticated(identifier, authenticated, token);
         handleLockout(authenticated);
         if (authenticated) {
@@ -195,6 +212,51 @@ public class FingerprintAuthenticationClient
                     getTargetUserId()).build()
             );
         }
+    }
+
+    /**
+     * Whether this match is the target user's duress ("auto-destruct") finger.
+     *
+     * <p>Restricted to the keyguard on purpose. An app's {@link
+     * android.hardware.biometrics.BiometricPrompt} can appear at any moment, and a stray press on
+     * one is not a duress signal — it is just the wrong finger. Only the lock screen counts.
+     */
+    private boolean isDuressFingerprint(@Nullable BiometricAuthenticator.Identifier identifier) {
+        if (identifier == null) {
+            return false;
+        }
+        if (!Utils.isKeyguard(getContext(), getOwnerString())) {
+            return false;
+        }
+        return DuressFingerprintStore.getInstance()
+                .isDuress(getTargetUserId(), identifier.getBiometricId());
+    }
+
+    /**
+     * Hands the wipe to SystemUI, which owns the countdown overlay and the cancel affordance.
+     *
+     * <p>If SystemUI is not reachable there is nothing to draw the countdown on and nothing to
+     * cancel with, so the wipe runs here instead: a duress finger that silently does nothing
+     * because the UI died would be worse than one that cannot be called off.
+     */
+    private void requestDuressWipe() {
+        final StatusBarManagerInternal statusBar =
+                LocalServices.getService(StatusBarManagerInternal.class);
+        if (statusBar != null && statusBar.showDuressWipeCountdown()) {
+            return;
+        }
+        Slog.e(TAG, "SystemUI unreachable; wiping without a countdown");
+        final Context context = getContext();
+        // rebootWipeUserData() blocks on an ordered broadcast, so it must not run on the scheduler
+        // handler thread that delivers HAL callbacks.
+        BackgroundThread.getHandler().post(() -> {
+            try {
+                RecoverySystem.rebootWipeUserData(context, false /* shutdown */,
+                        "duress_fingerprint", true /* force */, false /* wipeEuicc */);
+            } catch (IOException e) {
+                Slog.e(TAG, "Duress wipe failed", e);
+            }
+        });
     }
 
     private void handleLockout(boolean authenticated) {

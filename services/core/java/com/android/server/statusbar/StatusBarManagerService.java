@@ -81,6 +81,7 @@ import android.os.PowerManager;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.ResultReceiver;
+import android.os.RecoverySystem;
 import android.os.ServiceManager;
 import android.os.ShellCallback;
 import android.os.UserHandle;
@@ -106,6 +107,7 @@ import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.inputmethod.SoftInputShowHideReason;
 import com.android.internal.logging.InstanceId;
+import com.android.internal.os.BackgroundThread;
 import com.android.internal.os.TransferPipe;
 import com.android.internal.statusbar.DisableStates;
 import com.android.internal.statusbar.IAddTileResultCallback;
@@ -133,6 +135,7 @@ import com.android.server.wm.ActivityTaskManagerInternal;
 import com.android.systemui.shared.Flags;
 
 import java.io.FileDescriptor;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -958,6 +961,22 @@ public class StatusBarManagerService extends IStatusBarService.Stub implements D
                 try {
                     bar.showRearDisplayDialog(currentBaseState);
                 } catch (RemoteException ex) { }
+            }
+        }
+
+        @Override
+        public boolean showDuressWipeCountdown() {
+            IStatusBar bar = mBar;
+            if (bar == null) {
+                Slog.e(TAG, "showDuressWipeCountdown: no status bar connected");
+                return false;
+            }
+            try {
+                bar.showDuressWipeCountdown();
+                return true;
+            } catch (RemoteException ex) {
+                Slog.e(TAG, "showDuressWipeCountdown failed", ex);
+                return false;
             }
         }
 
@@ -2801,6 +2820,23 @@ public class StatusBarManagerService extends IStatusBarService.Stub implements D
                 Slog.e(TAG, "startAssist", e);
             }
         }
+    }
+
+    @Override
+    public void onDuressWipeConfirmed() {
+        enforceStatusBarService();
+        Slog.w(TAG, "Duress wipe confirmed; factory resetting");
+        // Always as the system user and always forced: DISALLOW_FACTORY_RESET must not be able to
+        // veto a duress wipe, and a wipe attributed to a secondary user would only erase that user.
+        // rebootWipeUserData() blocks on an ordered broadcast, so keep it off the binder thread.
+        Binder.withCleanCallingIdentity(() -> BackgroundThread.getHandler().post(() -> {
+            try {
+                RecoverySystem.rebootWipeUserData(mContext, false /* shutdown */,
+                        "duress_fingerprint", true /* force */, false /* wipeEuicc */);
+            } catch (IOException e) {
+                Slog.wtf(TAG, "Duress wipe failed", e);
+            }
+        }));
     }
 
     /** @hide */

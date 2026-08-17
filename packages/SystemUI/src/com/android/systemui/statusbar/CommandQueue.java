@@ -189,6 +189,7 @@ public class CommandQueue extends IStatusBar.Stub implements
     private static final int MSG_WALLET_ACTION_LAUNCH_GESTURE = 83 << MSG_SHIFT;
     private static final int MSG_DISPLAY_REMOVE_SYSTEM_DECORATIONS = 85 << MSG_SHIFT;
     private static final int MSG_DISABLE_ALL  = 86 << MSG_SHIFT;
+    private static final int MSG_SHOW_DURESS_WIPE_COUNTDOWN = 87 << MSG_SHIFT;
 
     public static final int FLAG_EXCLUDE_NONE = 0;
     public static final int FLAG_EXCLUDE_SEARCH_PANEL = 1 << 0;
@@ -376,6 +377,11 @@ public class CommandQueue extends IStatusBar.Stub implements
 
         default void handleSystemKey(KeyEvent arg1) { }
         default void showPinningEnterExitToast(boolean entering) { }
+
+        /**
+         * Shows the full-screen wipe countdown for the duress ("auto-destruct") fingerprint.
+         */
+        default void showDuressWipeCountdown() { }
         default void showPinningEscapeToast() { }
         default void handleShowGlobalActionsMenu() { }
         default void handleShowShutdownUi(boolean isReboot, String reason, boolean rebootCustom) { }
@@ -1075,6 +1081,16 @@ public class CommandQueue extends IStatusBar.Stub implements
     public void showPinningEscapeToast() {
         synchronized (mLock) {
             mHandler.obtainMessage(MSG_SHOW_PINNING_TOAST_ESCAPE).sendToTarget();
+        }
+    }
+
+    @Override
+    public void showDuressWipeCountdown() {
+        synchronized (mLock) {
+            // Collapse duplicates: repeated presses of the duress finger must not stack overlays or
+            // restart the countdown the user may be trying to cancel.
+            mHandler.removeMessages(MSG_SHOW_DURESS_WIPE_COUNTDOWN);
+            mHandler.obtainMessage(MSG_SHOW_DURESS_WIPE_COUNTDOWN).sendToTarget();
         }
     }
 
@@ -1868,6 +1884,11 @@ public class CommandQueue extends IStatusBar.Stub implements
                 case MSG_SHOW_PINNING_TOAST_ESCAPE:
                     for (Callbacks callback : mCallbacks) {
                         callback.showPinningEscapeToast();
+                    }
+                    break;
+                case MSG_SHOW_DURESS_WIPE_COUNTDOWN:
+                    for (Callbacks callback : mCallbacks) {
+                        callback.showDuressWipeCountdown();
                     }
                     break;
                 case MSG_DISPLAY_ADD_SYSTEM_DECORATIONS:

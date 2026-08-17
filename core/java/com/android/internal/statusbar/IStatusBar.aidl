@@ -413,4 +413,11 @@ oneway interface IStatusBar
     * @param displayId the id of the current display.
     */
     void moveFocusedTaskToDesktop(int displayId);
+
+    /**
+     * Shows the full-screen "wiping device" countdown after the duress ("auto-destruct")
+     * fingerprint was matched at the keyguard. SystemUI owns the countdown, the cancel affordance
+     * and, if the countdown runs out, the factory reset itself.
+     */
+    void showDuressWipeCountdown();
 }

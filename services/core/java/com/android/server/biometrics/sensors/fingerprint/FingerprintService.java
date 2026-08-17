@@ -136,6 +136,8 @@ public class FingerprintService extends SystemService {
     private final Handler mHandler;
     @NonNull
     private final FingerprintServiceRegistry mRegistry;
+    private final DuressFingerprintStore mDuressFingerprintStore =
+            DuressFingerprintStore.getInstance();
 
     interface FingerprintProviderFunction {
         FingerprintProvider getFingerprintProvider(Pair<String, SensorProps[]> filteredSensorProp,
@@ -244,6 +246,13 @@ public class FingerprintService extends SystemService {
                 Slog.w(TAG, "Null provider for enroll");
                 return -1;
             }
+
+            // A new enrolment is the only point at which the HAL can hand out a template id that
+            // used to belong to a removed finger, so this is the moment to make sure a duress mark
+            // is not left dangling — otherwise the finger about to be enrolled could inherit it and
+            // wipe the device. See DuressFingerprintStore.
+            mDuressFingerprintStore.pruneIfMissing(userId,
+                    getEnrolledFingerprintsDeprecated(userId, opPackageName));
 
             return provider.second.scheduleEnroll(provider.first, token, hardwareAuthToken, userId,
                     receiver, opPackageName, enrollReason, options);
@@ -590,6 +599,13 @@ public class FingerprintService extends SystemService {
                 Slog.w(TAG, "Null provider for remove");
                 return;
             }
+            // Drop the mark up front rather than in the removal callback. If the removal then fails
+            // the duress finger degrades into an ordinary unlock finger, which is the harmless way
+            // for this to go wrong; keeping the mark alive next to a possibly-deleted template
+            // risks the opposite, wiping the device on whichever finger inherits the id.
+            if (mDuressFingerprintStore.isDuress(userId, fingerId)) {
+                mDuressFingerprintStore.clear(userId);
+            }
             provider.second.scheduleRemove(provider.first, token, receiver, fingerId, userId,
                     opPackageName);
         }
@@ -600,6 +616,8 @@ public class FingerprintService extends SystemService {
                 final IFingerprintServiceReceiver receiver, final String opPackageName) {
 
             super.removeAll_enforcePermission();
+
+            mDuressFingerprintStore.clear(userId);
 
             final FingerprintServiceReceiver internalReceiver = new FingerprintServiceReceiver() {
                 int sensorsFinishedRemoving = 0;
@@ -745,6 +763,39 @@ public class FingerprintService extends SystemService {
             }
 
             provider.second.rename(provider.first, fingerId, userId, name);
+        }
+
+        @android.annotation.EnforcePermission(android.Manifest.permission.MANAGE_FINGERPRINT)
+        @Override // Binder call
+        public void setDuressFingerprint(final int fingerId, final int userId) {
+            super.setDuressFingerprint_enforcePermission();
+
+            if (fingerId == FingerprintManager.FINGERPRINT_ID_NONE) {
+                mDuressFingerprintStore.clear(userId);
+                return;
+            }
+            // Only ever mark an enrolment that actually exists, so a typo or a stale id from a
+            // cancelled enrolment cannot leave a mark pointing at a template that the HAL may
+            // later recycle for an unrelated finger.
+            final List<Fingerprint> enrolled = FingerprintService.this
+                    .getEnrolledFingerprintsDeprecated(userId, getContext().getOpPackageName());
+            for (Fingerprint fp : enrolled) {
+                if (fp.getBiometricId() == fingerId) {
+                    mDuressFingerprintStore.set(userId, fingerId);
+                    return;
+                }
+            }
+            Slog.w(TAG, "setDuressFingerprint: no such enrolment for user " + userId);
+        }
+
+        @android.annotation.EnforcePermission(android.Manifest.permission.MANAGE_FINGERPRINT)
+        @Override // Binder call
+        public int getDuressFingerprint(final int userId) {
+            super.getDuressFingerprint_enforcePermission();
+
+            mDuressFingerprintStore.pruneIfMissing(userId, FingerprintService.this
+                    .getEnrolledFingerprintsDeprecated(userId, getContext().getOpPackageName()));
+            return mDuressFingerprintStore.get(userId);
         }
 
         @Override // Binder call

@@ -4582,4 +4582,12 @@
 
     <!-- Description for the Ambient Cue accessibility action label for expanding. [CHAR LIMIT=NONE] -->
     <string name="ambient_cue_expand_action">expand</string>
+
+    <!-- Title of the full-screen countdown shown when the auto-destruct fingerprint is used at the
+         lock screen. [CHAR LIMIT=40] -->
+    <string name="duress_wipe_title">Wiping device</string>
+    <!-- Body of the auto-destruct countdown, below the seconds remaining. [CHAR LIMIT=NONE] -->
+    <string name="duress_wipe_message">The auto-destruct fingerprint was used. All data on this device is about to be permanently erased.</string>
+    <!-- Button that stops the auto-destruct countdown. [CHAR LIMIT=30] -->
+    <string name="duress_wipe_cancel">Cancel</string>
 </resources>

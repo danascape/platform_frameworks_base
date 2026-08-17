@@ -117,6 +117,16 @@ interface IFingerprintService {
     @EnforcePermission("MANAGE_FINGERPRINT")
     void rename(int fingerId, int userId, String name);
 
+    // Marks the enrolment specified by fingerId as userId's duress ("auto-destruct") fingerprint:
+    // matching it at the keyguard wipes the device instead of unlocking it. Pass
+    // FingerprintManager.FINGERPRINT_ID_NONE to clear.
+    @EnforcePermission("MANAGE_FINGERPRINT")
+    void setDuressFingerprint(int fingerId, int userId);
+
+    // Returns userId's duress enrolment id, or FingerprintManager.FINGERPRINT_ID_NONE if unset.
+    @EnforcePermission("MANAGE_FINGERPRINT")
+    int getDuressFingerprint(int userId);
+
     // Get a list of enrolled fingerprints in the given userId.
     List<Fingerprint> getEnrolledFingerprints(int userId, String opPackageName, String attributionTag);
 

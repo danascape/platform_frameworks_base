@@ -238,6 +238,17 @@ public interface StatusBarManagerInternal {
     void showRearDisplayDialog(int currentBaseState);
 
     /**
+     * Shows the duress ("auto-destruct") fingerprint wipe countdown.
+     *
+     * @return whether the request reached SystemUI. {@code false} means no countdown will be shown
+     *         and the caller is responsible for wiping without one, since a duress finger that
+     *         quietly does nothing is worse than one that cannot be called off.
+     *
+     * @see com.android.internal.statusbar.IStatusBar#showDuressWipeCountdown
+     */
+    boolean showDuressWipeCountdown();
+
+    /**
      * Called when requested to go to fullscreen from the focused app.
      *
      * @param displayId of the current display.

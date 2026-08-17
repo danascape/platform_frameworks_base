@@ -288,4 +288,9 @@
     <color name="pin_bouncer_action_button_bg">@androidprv:color/surface_effect_0</color>
     <!-- Bouncer background when blur is not enabled.   -->
     <color name="bouncer_fallback_bg">@android:color/system_accent2_200</color>
+
+    <!-- Auto-destruct wipe countdown. Fully opaque and theme-independent on purpose: it covers the
+         keyguard as a final warning, so it must never be translucent or tinted into illegibility. -->
+    <color name="duress_wipe_background">#E6191C</color>
+    <color name="duress_wipe_foreground">#FFFFFF</color>
 </resources>
