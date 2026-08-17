@@ -36,6 +36,15 @@
     <!-- Instructions telling the user to enter their text password to unlock the keyguard [CHAR LIMIT=48] -->
     <string name="keyguard_enter_password">Enter password</string>
 
+    <!-- Instructions telling the user to enter the PIN of the named user they are unlocking. [CHAR LIMIT=48] -->
+    <string name="keyguard_enter_pin_for_user">Enter PIN for {user_name}</string>
+
+    <!-- Instructions telling the user to draw the pattern of the named user they are unlocking. [CHAR LIMIT=48] -->
+    <string name="keyguard_enter_pattern_for_user">Draw pattern for {user_name}</string>
+
+    <!-- Instructions telling the user to enter the password of the named user they are unlocking. [CHAR LIMIT=48] -->
+    <string name="keyguard_enter_password_for_user">Enter password for {user_name}</string>
+
     <!-- Shown in the lock screen when there is SIM card IO error. -->
     <string name="keyguard_sim_error_message_short">Invalid Card.</string>
 
@@ -168,6 +177,15 @@
 
     <!-- Instructions when the user can unlock with PIN/password/pattern or fingerprint from bouncer. [CHAR LIMIT=48]  -->
     <string name="kg_unlock_with_pattern_or_fp">Unlock with pattern or fingerprint</string>
+
+    <!-- Instructions when the named user can unlock with PIN or fingerprint from bouncer. [CHAR LIMIT=48]  -->
+    <string name="kg_unlock_with_pin_or_fp_for_user">Unlock {user_name} with PIN or fingerprint</string>
+
+    <!-- Instructions when the named user can unlock with password or fingerprint from bouncer. [CHAR LIMIT=48]  -->
+    <string name="kg_unlock_with_password_or_fp_for_user">Unlock {user_name} with password or fingerprint</string>
+
+    <!-- Instructions when the named user can unlock with pattern or fingerprint from bouncer. [CHAR LIMIT=48]  -->
+    <string name="kg_unlock_with_pattern_or_fp_for_user">Unlock {user_name} with pattern or fingerprint</string>
 
     <!-- Message shown when we are on bouncer after Device admin requested lockdown.  [CHAR LIMIT=70] -->
     <string name="kg_prompt_after_dpm_lock">For added security, device was locked by work policy</string>

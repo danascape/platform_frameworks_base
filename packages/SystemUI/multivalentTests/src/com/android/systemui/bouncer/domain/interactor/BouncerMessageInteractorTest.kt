@@ -22,6 +22,7 @@ import android.hardware.biometrics.BiometricSourceType
 import android.platform.test.annotations.EnableFlags
 import android.security.Flags.FLAG_SECURE_LOCK_DEVICE
 import android.testing.TestableLooper
+import android.util.PluralsMessageFormatter
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import com.android.internal.widget.LockPatternUtils
@@ -199,6 +200,48 @@ class BouncerMessageInteractorTest : SysuiTestCase() {
             )
             assertThat(bouncerMessage).isNotNull()
             assertThat(primaryResMessage(bouncerMessage)).isEqualTo("Enter PIN")
+        }
+
+    @Test
+    fun defaultMessage_namedUser_namesTheUserBeingUnlocked() =
+        testScope.runTest {
+            init(fingerprintAuthCurrentlyAllowed = false)
+            val bouncerMessage by collectLastValue(underTest.bouncerMessage)
+            kosmos.fakeUserRepository.setUserInfos(listOf(NAMED_USER))
+            kosmos.fakeUserRepository.setSelectedUserInfo(NAMED_USER)
+            underTest.onPrimaryBouncerUserInput()
+            runCurrent()
+
+            assertThat(primaryFormattedMessage(bouncerMessage))
+                .isEqualTo("Enter PIN for $NAMED_USER_NAME")
+        }
+
+    @Test
+    fun defaultMessage_namedUserWithFingerprint_namesTheUserBeingUnlocked() =
+        testScope.runTest {
+            init(fingerprintAuthCurrentlyAllowed = true)
+            val bouncerMessage by collectLastValue(underTest.bouncerMessage)
+            kosmos.fakeUserRepository.setUserInfos(listOf(NAMED_USER))
+            kosmos.fakeUserRepository.setSelectedUserInfo(NAMED_USER)
+            underTest.onPrimaryBouncerUserInput()
+            runCurrent()
+
+            assertThat(primaryFormattedMessage(bouncerMessage))
+                .isEqualTo("Unlock $NAMED_USER_NAME with PIN or fingerprint")
+        }
+
+    @Test
+    fun incorrectInput_namedUser_isLeftUnnamed() =
+        testScope.runTest {
+            init()
+            val bouncerMessage by collectLastValue(underTest.bouncerMessage)
+            kosmos.fakeUserRepository.setUserInfos(listOf(NAMED_USER))
+            kosmos.fakeUserRepository.setSelectedUserInfo(NAMED_USER)
+            underTest.onPrimaryAuthIncorrectAttempt()
+            runCurrent()
+
+            // Only the credential prompts are named; an error already says what happened.
+            assertThat(primaryFormattedMessage(bouncerMessage)).isEqualTo("Wrong PIN. Try again.")
         }
 
     @EnableFlags(FLAG_SECURE_LOCK_DEVICE)
@@ -1044,6 +1087,14 @@ class BouncerMessageInteractorTest : SysuiTestCase() {
     private fun primaryResMessage(bouncerMessage: BouncerMessageModel?) =
         resString(bouncerMessage?.message?.messageResId)
 
+    /** The primary message as the view binder renders it, formatter arguments applied. */
+    private fun primaryFormattedMessage(bouncerMessage: BouncerMessageModel?): String? {
+        val message = bouncerMessage?.message ?: return null
+        val msgResId = message.messageResId ?: return null
+        val args = message.formatterArgs ?: return resString(msgResId)
+        return PluralsMessageFormatter.format(context.resources, args, msgResId)
+    }
+
     private fun secondaryResMessage(bouncerMessage: BouncerMessageModel?) =
         resString(bouncerMessage?.secondaryMessage?.messageResId)
 
@@ -1081,10 +1132,18 @@ class BouncerMessageInteractorTest : SysuiTestCase() {
 
     companion object {
         private const val PRIMARY_USER_ID = 0
+        private const val NAMED_USER_NAME = "Work"
+
+        // Deliberately unnamed: an unnamed user gets the plain credential prompts that the
+        // assertions throughout this class expect. The named variants ("Enter PIN for Work") are
+        // covered by their own tests, which select NAMED_USER.
         private val PRIMARY_USER =
+            UserInfo(/* id= */ PRIMARY_USER_ID, /* name= */ null, /* flags= */ UserInfo.FLAG_PRIMARY)
+
+        private val NAMED_USER =
             UserInfo(
                 /* id= */ PRIMARY_USER_ID,
-                /* name= */ "primary user",
+                /* name= */ NAMED_USER_NAME,
                 /* flags= */ UserInfo.FLAG_PRIMARY,
             )
     }

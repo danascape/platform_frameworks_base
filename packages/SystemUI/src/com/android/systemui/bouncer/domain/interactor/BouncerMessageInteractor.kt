@@ -63,6 +63,23 @@ private const val SYS_BOOT_REASON_PROP = "sys.boot.reason.last"
 private const val REBOOT_MAINLINE_UPDATE = "reboot,mainline_update"
 private const val TAG = "BouncerMessageInteractor"
 
+/** ICU argument name carrying the user name into the `*_for_user` prompt strings. */
+private const val USER_NAME_ARG = "user_name"
+
+/**
+ * The bouncer's credential prompts, each mapped to the variant that names the user being unlocked.
+ * A prompt absent from this map is shown unchanged.
+ */
+private val PROMPT_WITH_USER_NAME =
+    mapOf(
+        R.string.keyguard_enter_pin to R.string.keyguard_enter_pin_for_user,
+        R.string.keyguard_enter_pattern to R.string.keyguard_enter_pattern_for_user,
+        R.string.keyguard_enter_password to R.string.keyguard_enter_password_for_user,
+        R.string.kg_unlock_with_pin_or_fp to R.string.kg_unlock_with_pin_or_fp_for_user,
+        R.string.kg_unlock_with_password_or_fp to R.string.kg_unlock_with_password_or_fp_for_user,
+        R.string.kg_unlock_with_pattern_or_fp to R.string.kg_unlock_with_pattern_or_fp_for_user,
+    )
+
 /** Handles business logic for the primary bouncer message area. */
 @SysUISingleton
 class BouncerMessageInteractor
@@ -495,7 +512,32 @@ constructor(
             return
         }
 
-        repository.setMessage(message, source)
+        repository.setMessage(message.withUserName(), source)
+    }
+
+    /**
+     * Names the user being unlocked in the bouncer's credential prompt — "Enter PIN for Work"
+     * rather than a bare "Enter PIN" — so that on a device with several users it is clear which one
+     * the PIN pad belongs to. Only the prompts that ask for a credential are rewritten, by mapping
+     * them through [PROMPT_WITH_USER_NAME]; error, lockout and biometric messages already say what
+     * happened and are left alone.
+     *
+     * The name is dropped when the selected user has none, which is the ordinary single-user case —
+     * there is nothing to disambiguate there.
+     */
+    private fun BouncerMessageModel.withUserName(): BouncerMessageModel {
+        val primary = message ?: return this
+        val promptResId = primary.messageResId ?: return this
+        val namedResId = PROMPT_WITH_USER_NAME[promptResId] ?: return this
+        val userName =
+            userRepository.getSelectedUserInfo().name?.takeIf { it.isNotBlank() } ?: return this
+        return copy(
+            message =
+                primary.copy(
+                    messageResId = namedResId,
+                    formatterArgs = mapOf(USER_NAME_ARG to userName),
+                )
+        )
     }
 
     fun onSecureLockDeviceUnlock() {
