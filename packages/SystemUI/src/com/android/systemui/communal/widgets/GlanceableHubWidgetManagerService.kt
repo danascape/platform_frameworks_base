@@ -22,6 +22,7 @@ import android.appwidget.AppWidgetProviderInfo
 import android.content.ComponentName
 import android.content.Intent
 import android.content.IntentSender
+import android.content.pm.PackageManager
 import android.os.IBinder
 import android.os.RemoteCallbackList
 import android.os.RemoteException
@@ -279,6 +280,7 @@ constructor(
 
     private inner class WidgetManagerServiceBinder : IGlanceableHubWidgetManagerService.Stub() {
         override fun addWidgetsListener(listener: IGlanceableHubWidgetsListener?) {
+            enforceManageHubWidgets()
             val iden = clearCallingIdentity()
 
             try {
@@ -289,6 +291,7 @@ constructor(
         }
 
         override fun removeWidgetsListener(listener: IGlanceableHubWidgetsListener?) {
+            enforceManageHubWidgets()
             val iden = clearCallingIdentity()
 
             try {
@@ -299,6 +302,7 @@ constructor(
         }
 
         override fun setAppWidgetHostListener(appWidgetId: Int, listener: IAppWidgetHostListener?) {
+            enforceManageHubWidgets()
             val iden = clearCallingIdentity()
 
             try {
@@ -309,6 +313,7 @@ constructor(
         }
 
         override fun removeAppWidgetHostListener(appWidgetId: Int) {
+            enforceManageHubWidgets()
             val iden = clearCallingIdentity()
 
             try {
@@ -324,6 +329,7 @@ constructor(
             rank: Int,
             callback: IConfigureWidgetCallback?,
         ) {
+            enforceManageHubWidgets()
             val iden = clearCallingIdentity()
 
             try {
@@ -334,6 +340,7 @@ constructor(
         }
 
         override fun deleteWidget(appWidgetId: Int) {
+            enforceManageHubWidgets()
             val iden = clearCallingIdentity()
 
             try {
@@ -344,6 +351,7 @@ constructor(
         }
 
         override fun updateWidgetOrder(appWidgetIds: IntArray?, ranks: IntArray?) {
+            enforceManageHubWidgets()
             val iden = clearCallingIdentity()
 
             try {
@@ -359,6 +367,7 @@ constructor(
             appWidgetIds: IntArray?,
             ranks: IntArray?,
         ) {
+            enforceManageHubWidgets()
             val iden = clearCallingIdentity()
 
             try {
@@ -369,12 +378,21 @@ constructor(
         }
 
         override fun getIntentSenderForConfigureActivity(appWidgetId: Int): IntentSender? {
+            enforceManageHubWidgets()
             val iden = clearCallingIdentity()
 
             try {
                 return getIntentSenderForConfigureActivityInternal(appWidgetId)
             } finally {
                 restoreCallingIdentity(iden)
+            }
+        }
+
+        private fun enforceManageHubWidgets() {
+            if (checkCallingOrSelfPermission(MANAGE_GLANCEABLE_HUB_WIDGETS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                throw SecurityException(
+                    "Managing Glanceable Hub widgets requires $MANAGE_GLANCEABLE_HUB_WIDGETS")
             }
         }
     }
@@ -415,5 +433,8 @@ constructor(
 
     companion object {
         private const val TAG = "GlanceableHubWidgetManagerService"
+
+        private const val MANAGE_GLANCEABLE_HUB_WIDGETS =
+            "com.android.systemui.permission.MANAGE_GLANCEABLE_HUB_WIDGETS"
     }
 }

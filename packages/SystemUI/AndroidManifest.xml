@@ -209,6 +209,10 @@
     <permission android:name="com.android.systemui.permission.FLAGS"
                 android:protectionLevel="signature" />
 
+    <permission android:name="com.android.systemui.permission.MANAGE_GLANCEABLE_HUB_WIDGETS"
+                android:protectionLevel="signature" />
+    <uses-permission android:name="com.android.systemui.permission.MANAGE_GLANCEABLE_HUB_WIDGETS" />
+
     <permission android:name="android.permission.CUSTOMIZE_SYSTEM_UI"
         android:protectionLevel="signature|privileged" />
 
@@ -1161,7 +1165,9 @@
 
         <service
             android:name="com.android.systemui.communal.widgets.GlanceableHubWidgetManagerService"
-            android:exported="false" />
+            android:exported="true"
+            android:permission="com.android.systemui.permission.MANAGE_GLANCEABLE_HUB_WIDGETS"
+            />
 
         <!-- Doze with notifications, run in main sysui process for every user  -->
         <service
